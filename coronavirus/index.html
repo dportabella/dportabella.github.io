@@ -13,6 +13,9 @@
             height: 30em;
             max-height: 30em;
         }
+        #table-data table {
+            border: 1px;
+        }
     </style>
 </head>
 
@@ -38,6 +41,9 @@
             <a class="list-group-item list-group-item-action" href="?reload=3#Italy; Spain; France; China">
                 Italy; Spain; France; China
             </a>
+            <a class="list-group-item list-group-item-action" href="javascript:showAllCountries()">
+                All countries
+            </a>
         </ul>
         <div class="input-group">
             <div class="input-group-prepend">
@@ -51,7 +57,10 @@
     </div>
 
    <hr>
-
+   <div id="table-data">
+      table data...
+   </div>
+   <hr>
     <div class="jumbotron">
         <p>The following chart is based on <a href="https://github.com/paroj/arewedeadyet">https://github.com/paroj/arewedeadyet</a>, which in turn is based live data on <a
                 href="https://github.com/pomber/covid19">https://github.com/pomber/covid19</a> and on sources <a
@@ -125,15 +134,18 @@
             var datasets = []
 
             for (var i = 0; i < countries.length; i++) {
-                datasets.push(
-                    {
-                        label: countries[i],
-                        fill: fill,
-                        backgroundColor: colors[i],
-                        borderColor: colors[i],
-                        data: fn(data, countries[i])
-                    }
-                )
+                var countryData = fn(data, countries[i]);
+                if (countryData.length > 0) {
+                    datasets.push(
+                        {
+                            label: countries[i],
+                            fill: fill,
+                            backgroundColor: colors[i],
+                            borderColor: colors[i],
+                            data: countryData
+                        }
+                    )
+                }
             }
 
             return datasets
@@ -183,6 +195,9 @@
                             max: 5
                         }
                     }]
+                },
+                legend: {
+                    display: true
                 }
             }
         }
@@ -229,8 +244,61 @@
                     cconfig.data.datasets = getDatasets(data, getDeadPerMillion, countries, false)
                     cconfig.data.labels = labels
                     makeChart("dead-per-million", cconfig)
+                    showTable(cconfig.data.datasets)
                 }
                 )
+        }
+
+        function showAllCountries() {
+            fetch("https://pomber.github.io/covid19/timeseries.json")
+                .then(response => { return response.json() })
+                .then(data => {
+                    console.log(data);
+                    function valid(country) { return country != "Cabo Verde" && country != "Timor-Leste"; }
+                    var countries = Object.keys(data).sort().filter(valid).join("; ")
+                    document.getElementById('countries').value = countries;
+                    refresh();
+                })
+//            var countries = Object.keys(population).sort().join("; ")
+//            document.getElementById('countries').value = countries;
+//            refresh();
+        }
+
+        function showTable(data) {
+            console.log(data)
+            var tableData = document.getElementById('table-data')
+            tableData.innerHTML = ""
+            var table = document.createElement("table")
+            tableData.append(table)
+            table.setAttribute("border", "1");
+            var maxDays = Math.max(...data.map(i => i.data.length))
+            var tr = document.createElement("tr")
+            table.append(tr)
+            var td = document.createElement("td")
+            tr.append(td)
+            td.appendChild(document.createTextNode("country"))
+            function addValue(value) {
+                var td = document.createElement("td")
+                tr.append(td)
+                td.appendChild(document.createTextNode(value))
+            }
+            for (var i = 0; i < maxDays; i++) { addValue(i); }
+            for (var i in data) {
+                var tr = document.createElement("tr")
+                table.append(tr)
+                var td = document.createElement("td")
+                tr.append(td)
+                td.appendChild(document.createTextNode(data[i].label))
+
+                function addValue(value) {
+                    var td = document.createElement("td")
+                    tr.append(td)
+                    td.appendChild(document.createTextNode(value))
+                }
+                data[i].data.forEach(addValue)
+                var remainingDays = maxDays - data[i].data.length
+                for (var i = 0; i < remainingDays; i++) { addValue(""); }
+            }
         }
 
         if (window.location.hash) {
