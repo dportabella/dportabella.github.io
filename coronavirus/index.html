@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="shortcut icon" type="image/x-icon" href="/arewedeadyet/favicon.ico">
+    <title>Coronavirus death rate by country</title>
+    <style>
+        canvas {
+            height: 30em;
+            max-height: 30em;
+        }
+    </style>
+</head>
+
+<body class="container">
+    <div class="card mt-3">
+        <div class="card-body">
+            <canvas id="dead-per-million"></canvas>
+        </div>
+    </div>
+   <hr>
+
+    <div class="card">
+        <div class="card-header">
+            Countries to compare
+        </div>
+        <ul class="list-group list-group-flush">
+            <a class="list-group-item list-group-item-action" href="?reload=1#China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil">
+                China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil
+            </a>
+            <a class="list-group-item list-group-item-action" href="?reload=2#Korea, South; Germany; US; China">
+                Korea, South; Germany; US; China
+            </a>
+            <a class="list-group-item list-group-item-action" href="?reload=3#Italy; Spain; France; China">
+                Italy; Spain; France; China
+            </a>
+        </ul>
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="basic-addon1">Custom</span>
+            </div>
+            <input type="text" id="countries" value="China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil" class="form-control">
+            <div class="input-group-append">
+                <input type="button" value="Apply" onclick="refresh()" class="btn btn-primary">
+            </div>
+        </div>
+    </div>
+
+   <hr>
+
+    <div class="jumbotron">
+        <p>The following chart is based on <a href="https://github.com/paroj/arewedeadyet">https://github.com/paroj/arewedeadyet</a>, which in turn is based live data on <a
+                href="https://github.com/pomber/covid19">https://github.com/pomber/covid19</a> and on sources <a
+                href="https://coronavirus.jhu.edu/map.html">jhu.edu</a>.</p>
+        <p>
+    </div>
+
+    <script src="./population_from_wikipedia.js"></script>
+    <script>
+        "use strict"
+
+        var labels = []
+        var days = {}
+
+        function getDays(data, country) {
+            var confirmed = []
+            for (var day of data[country]) {
+                if (day["confirmed"] < 25) continue
+                confirmed.push(day["confirmed"])
+
+                if (confirmed.length > labels.length) labels.push(labels.length)
+            }
+            days[country] = confirmed
+            return confirmed
+        }
+
+        function getInfected(data, country) {
+            var infected = []
+            for (var day of data[country]) {
+                if (day["confirmed"] < 25) continue
+                infected.push(day["confirmed"] - day["deaths"] - day["recovered"])
+            }
+            return infected
+        }
+
+        function getFatalityRate(data, country) {
+            var fatality = []
+            for (var day of data[country]) {
+                if (day["confirmed"] < 25) continue
+                fatality.push((day["deaths"] / day["confirmed"] * 100).toFixed(2))
+            }
+            return fatality
+        }
+
+        function getDeadPerMillion(data, country) {
+            var dead = []
+            for (var day of data[country]) {
+                if (day["confirmed"] < 25) continue
+                dead.push((day["deaths"] / (population[country] / 1e6)).toFixed(2))
+            }
+            return dead
+        }
+
+        function getRate(data, country) {
+            var confirmed = days[country]
+            var rate = [0]
+            for (var i = 1; i < confirmed.length; i++) {
+                rate.push((confirmed[i] / confirmed[i - 1]))
+            }
+
+            var avgd = [0, 0, 0, 0, 0]
+            for (var i = 4; i < rate.length; i++) {
+                avgd.push(((rate[i] + rate[i - 1] + rate[i - 2] + rate[i - 3]) / 4).toFixed(2))
+            }
+
+            return avgd
+        }
+
+        function getDatasets(data, fn, countries, fill) {
+            var colors = ['rgb(255, 132, 255)', 'rgb(255, 99, 132)', 'rgb(99, 255, 132)', 'rgb(99, 132, 255)', 'rgb(132, 255, 255)', 'rgb(255, 255, 132)']
+            var datasets = []
+
+            for (var i = 0; i < countries.length; i++) {
+                datasets.push(
+                    {
+                        label: countries[i],
+                        fill: fill,
+                        backgroundColor: colors[i],
+                        borderColor: colors[i],
+                        data: fn(data, countries[i])
+                    }
+                )
+            }
+
+            return datasets
+        }
+
+        var config = {
+            // The type of chart we want to create
+            type: 'line',
+
+            // The data for our dataset
+            data: {
+                datasets: null,
+                labels: null
+            },
+
+            // Configuration options go here
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                title: {
+                    display: true,
+                    text: '---'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Days since 25 confirmed infected cases'
+                        },
+                        ticks: {
+                            max: 26
+                        }
+
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: '---'
+                        },
+                        ticks: {
+                            max: 5
+                        }
+                    }]
+                }
+            }
+        }
+
+        var charts = {}
+
+        function makeChart(name, config) {
+            var canvas = document.getElementById(name).getContext('2d')
+            if (name in charts) charts[name].destroy()
+            charts[name] = new Chart(canvas, config)
+        }
+
+        function refresh() {
+            var countries_str = document.getElementById('countries').value
+            var countries = countries_str.split(";").map(e => e.trim())
+
+            var err = ""
+
+            fetch("https://pomber.github.io/covid19/timeseries.json")
+                .then(response => { return response.json() })
+                .then(data => {
+                    console.log(data);
+                    var initial = !Object.keys(charts).length
+
+                    for (var c of countries) {
+                        if (!(c in data))
+                            err += c + " is not a know country name "
+                        if (!(c in population))
+                            err += " population of " + c + " not known"
+                    }
+
+                    if (err) {
+                        alert(err)
+                        return
+                    }
+
+                    if (!initial)
+                        window.location.hash = "#" + encodeURI(countries_str)
+
+                    var cconfig = JSON.parse(JSON.stringify(config))
+                    cconfig.options.title.text = 'Coronavirus death rate by country'
+                    cconfig.options.scales.yAxes[0].scaleLabel.labelString = "deaths per million"
+                    cconfig.data.datasets = getDatasets(data, getDays, countries, false)
+                    cconfig.data.datasets = getDatasets(data, getDeadPerMillion, countries, false)
+                    cconfig.data.labels = labels
+                    makeChart("dead-per-million", cconfig)
+                }
+                )
+        }
+
+        if (window.location.hash) {
+            document.getElementById('countries').value = decodeURI(window.location.hash.substring(1))
+            charts["_dummy"] = 1 // force non-filled style
+        }
+        refresh()
+    </script>
+</body>
+
+</html>
