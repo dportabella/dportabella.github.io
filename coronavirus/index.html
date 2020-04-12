@@ -20,6 +20,7 @@
 </head>
 
 <body class="container">
+    <h1>Coronavirus death rate by country</h1>
     <div class="card mt-3">
         <div class="card-body">
             <canvas id="dead-per-million"></canvas>
@@ -28,12 +29,23 @@
    <hr>
 
     <div class="card">
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="basic-addon1">Limit Y axis to (leave blank for auto-escale)</span>
+            </div>
+            <input type="text" id="maxY" value="100" class="form-control">
+            <div class="input-group-append">
+                <input type="button" value="Apply" onclick="refresh()" class="btn btn-primary">
+            </div>
+        </div>
+        <hr>
+
         <div class="card-header">
             Countries to compare
         </div>
         <ul class="list-group list-group-flush">
-            <a class="list-group-item list-group-item-action" href="?reload=1#China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil">
-                China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil
+            <a class="list-group-item list-group-item-action" href="?reload=1#Brazil; China; Germany; United Kingdom; Switzerland; Italy; Spain; US; Korea, South">
+                Brazil; China; Germany; United Kingdom; Switzerland; Italy; Spain; US; Korea, South
             </a>
             <a class="list-group-item list-group-item-action" href="?reload=2#Korea, South; Germany; US; China">
                 Korea, South; Germany; US; China
@@ -49,7 +61,7 @@
             <div class="input-group-prepend">
                 <span class="input-group-text" id="basic-addon1">Custom</span>
             </div>
-            <input type="text" id="countries" value="China; Germany; United Kingdom; Switzerland; Italy; Spain; Brazil" class="form-control">
+            <input type="text" id="countries" value="Brazil; China; Germany; United Kingdom; Switzerland; Italy; Spain; US; Korea, South" class="form-control">
             <div class="input-group-append">
                 <input type="button" value="Apply" onclick="refresh()" class="btn btn-primary">
             </div>
@@ -139,7 +151,8 @@
         }
 
         function getDatasets(data, fn, countries, fill) {
-            var colors = ['rgb(255, 132, 255)', 'rgb(255, 99, 132)', 'rgb(99, 255, 132)', 'rgb(99, 132, 255)', 'rgb(132, 255, 255)', 'rgb(255, 255, 132)']
+            // var colors = ['rgb(255, 132, 255)', 'rgb(255, 99, 132)', 'rgb(99, 255, 132)', 'rgb(99, 132, 255)', 'rgb(132, 255, 255)', 'rgb(255, 255, 132)', 'maroon', 'green', 'olive']
+            var colors = ["red", "maroon", "yellow", "olive", "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple", "black", "gray", "silver"];
             var datasets = []
 
             for (var i = 0; i < countries.length; i++) {
@@ -157,7 +170,17 @@
                 }
             }
 
+            console.log("datasets", datasets);
+
             return datasets
+        }
+
+        function maxX(datasets) {
+            return Math.max(
+                ...datasets
+                .filter(function (country) { return country.label !== "China"; })
+                .map(function(country) { return country.data.length; })
+                )
         }
 
         var config = {
@@ -174,10 +197,10 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                title: {
-                    display: true,
-                    text: '---'
-                },
+//                title: {
+//                    display: true,
+//                    text: '---'
+//                },
                 tooltips: {
                     mode: 'index',
                     intersect: false,
@@ -190,7 +213,7 @@
                             labelString: 'Days since 25 confirmed infected cases'
                         },
                         ticks: {
-                            max: 26
+//                            max: 26
                         }
 
                     }],
@@ -201,7 +224,8 @@
                             labelString: '---'
                         },
                         ticks: {
-                            max: 5
+//                            max: 5
+//                            max: 30
                         }
                     }]
                 },
@@ -228,7 +252,7 @@
             fetch("https://pomber.github.io/covid19/timeseries.json")
                 .then(response => { return response.json() })
                 .then(data => {
-                    console.log(data);
+                    console.log("data", data);
                     var initial = !Object.keys(charts).length
 
                     for (var c of countries) {
@@ -247,11 +271,16 @@
                         window.location.hash = "#" + encodeURI(countries_str)
 
                     var cconfig = JSON.parse(JSON.stringify(config))
-                    cconfig.options.title.text = 'Coronavirus death rate by country'
+                    //cconfig.options.title.text = 'Coronavirus death rate by country'
                     cconfig.options.scales.yAxes[0].scaleLabel.labelString = "deaths per million"
                     cconfig.data.datasets = getDatasets(data, getDays, countries, false)
                     cconfig.data.datasets = getDatasets(data, getDeadPerMillion, countries, false)
                     cconfig.data.labels = labels
+                    cconfig.options.scales.xAxes[0].ticks.max = maxX(cconfig.data.datasets)
+                    var maxY = Number(document.getElementById('maxY').value);
+                    if (maxY >= 1)
+                        cconfig.options.scales.yAxes[0].ticks.max = maxY
+                    aa=cconfig
                     makeChart("dead-per-million", cconfig)
                     showTable(cconfig.data.datasets)
                 }
@@ -262,7 +291,7 @@
             fetch("https://pomber.github.io/covid19/timeseries.json")
                 .then(response => { return response.json() })
                 .then(data => {
-                    console.log(data);
+                    console.log("data", data);
                     function valid(country) { return country != "Cabo Verde" && country != "Timor-Leste"; }
                     var countries = Object.keys(data).sort().filter(valid).join("; ")
                     document.getElementById('countries').value = countries;
@@ -314,6 +343,7 @@
             document.getElementById('countries').value = decodeURI(window.location.hash.substring(1))
             charts["_dummy"] = 1 // force non-filled style
         }
+        var aa; 
         refresh()
     </script>
 </body>
